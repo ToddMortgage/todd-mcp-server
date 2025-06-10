@@ -47,26 +47,50 @@ async def health_check():
 async def generate_report(request: ReportRequest):
     try:
         # Generate custom market report
-        report_data = {
-            "reportId": f"SFL_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{request.firstName}_{request.lastName}",
-            "client": f"{request.firstName} {request.lastName}",
-            "email": request.email,
-            "city": request.city,
-            "propertyType": request.propertyType,
-            "priceRange": f"${request.minPrice} - ${request.maxPrice}",
-            "reportType": request.reportType,
-            "generated": datetime.now().isoformat(),
-            "message": f"Custom {request.city} market report generated for {request.firstName}!"
-        }
-        
-        return {
-            "success": True,
-            "report": report_data,
-            "message": f"Report generated successfully for {request.firstName} in {request.city}"
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+       # Call Node.js MLS scraper with form parameters
+        try:
+            result = subprocess.run([
+                'node', 'matrix-scraper.js',
+                '--city', request.city,
+                '--propertyType', request.propertyType, 
+                '--minPrice', request.minPrice,
+                '--maxPrice', request.maxPrice
+            ], capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0:
+                # Parse MLS data from scraper
+                mls_data = json.loads(result.stdout)
+                
+                report_data = {
+                    "reportId": f"SFL_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{request.firstName}_{request.lastName}",
+                    "client": f"{request.firstName} {request.lastName}",
+                    "email": request.email,
+                    "city": request.city,
+                    "propertyType": request.propertyType,
+                    "priceRange": f"${request.minPrice} - ${request.maxPrice}",
+                    "reportType": request.reportType,
+                    "generated": datetime.now().isoformat(),
+                    "mlsData": mls_data,  # Real MLS data here
+                    "message": f"MLS data retrieved for {request.city} - {len(mls_data.get('properties', []))} properties found"
+                }
+            else:
+                # Fallback if scraper fails
+                report_data = {
+                    "reportId": f"SFL_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{request.firstName}_{request.lastName}",
+                    "client": f"{request.firstName} {request.lastName}",
+                    "email": request.email,
+                    "city": request.city,
+                    "error": "MLS scraper failed",
+                    "message": f"Unable to retrieve MLS data for {request.city}"
+                }
+                
+        except Exception as e:
+            # Error handling
+            report_data = {
+                "reportId": f"SFL_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{request.firstName}_{request.lastName}",
+                "error": str(e),
+                "message": "MLS scraper error"
+            }
 
 @app.get("/test-zapier")
 async def test_zapier():
