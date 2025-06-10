@@ -3,6 +3,10 @@ import asyncio
 import json
 import httpx
 import sys
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+from pydantic import BaseModel
 from datetime import datetime
 from mcp.server import Server, NotificationOptions
 from mcp.server.stdio import stdio_server
@@ -10,6 +14,58 @@ from mcp.server.models import InitializationOptions
 from mcp.types import TextContent, Tool
 
 app = Server("todd-notion-enhanced")
+# Create FastAPI web server for API endpoints
+web_app = FastAPI(title="Todd's Market Intelligence API")
+
+# Enable CORS for Zapier
+web_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Request models
+class ReportRequest(BaseModel):
+    firstName: str
+    lastName: str
+    email: str
+    phone: str
+    city: str
+    propertyType: str
+    minPrice: str = ""
+    maxPrice: str = ""
+    reportType: str
+
+@web_app.get("/health")
+async def health_check():
+    return {"status": "healthy", "message": "Todd's API is running!"}
+
+@web_app.post("/generate-report")
+async def generate_report(request: ReportRequest):
+    try:
+        # Generate custom market report
+report_data = {
+            "reportId": f"SFL_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{request.firstName}_{request.lastName}",
+            "client": f"{request.firstName} {request.lastName}",
+            "email": request.email,
+            "city": request.city,
+            "propertyType": request.propertyType,
+            "priceRange": f"${request.minPrice} - ${request.maxPrice}",
+            "reportType": request.reportType,
+            "generated": datetime.now().isoformat(),
+            "message": f"Custom {request.city} market report generated for {request.firstName}!"
+        }
+        
+        return {
+            "success": True,
+            "report": report_data,
+            "message": f"Report generated successfully for {request.firstName} in {request.city}"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Your database config with hardcoded token
 NOTION_TOKEN = "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"
@@ -424,4 +480,17 @@ async def main():
         await app.run(read_stream, write_stream, init_options)
 
 if __name__ == "__main__":
+    asyncio.run(main())
+# Run both MCP and FastAPI servers
+if __name__ == "__main__":
+    import threading
+    
+    # Start FastAPI server in a separate thread
+    def run_web_server():
+        uvicorn.run(web_app, host="0.0.0.0", port=8080)
+    
+    web_thread = threading.Thread(target=run_web_server, daemon=True)
+    web_thread.start()
+    
+    # Run MCP server in main thread
     asyncio.run(main())
