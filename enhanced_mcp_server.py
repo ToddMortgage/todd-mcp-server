@@ -46,7 +46,7 @@ async def health_check():
 async def generate_report(request: ReportRequest):
     try:
         # Generate custom market report
-report_data = {
+        report_data = {
             "reportId": f"SFL_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{request.firstName}_{request.lastName}",
             "client": f"{request.firstName} {request.lastName}",
             "email": request.email,
