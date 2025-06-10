@@ -1,1 +1,1 @@
-web: python enhanced_mcp_server.py
+web: python simple_api.py
