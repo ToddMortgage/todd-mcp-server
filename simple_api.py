@@ -23,7 +23,7 @@ app.add_middleware(
 
 # Your database config with hardcoded token
 NOTION_TOKEN = "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"
-
+LEADS_DATABASE_ID = "20f4b172eba180d4bc22db465b17cbe9"
 # Request models
 class ReportRequest(BaseModel):
     firstName: str
@@ -359,7 +359,78 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "message": "Todd's API is running!"}
-
+async def save_lead_to_notion(request_data, report_id):
+    """
+    Save lead information to Notion database
+    """
+    try:
+        headers = {
+            "Authorization": f"Bearer {NOTION_TOKEN}",
+            "Content-Type": "application/json",
+            "Notion-Version": "2022-06-28"
+        }
+        
+        notion_data = {
+            "parent": {"database_id": LEADS_DATABASE_ID},
+            "properties": {
+                "Name": {
+                    "title": [
+                        {
+                            "text": {
+                                "content": f"{request_data.firstName} {request_data.lastName}"
+                            }
+                        }
+                    ]
+                },
+                "Email": {
+                    "email": request_data.email
+                },
+                "Phone": {
+                    "phone_number": request_data.phone
+                },
+                "Status": {
+                    "select": {
+                        "name": "New Lead"
+                    }
+                },
+                "Source": {
+                    "select": {
+                        "name": "Landing Page"
+                    }
+                },
+                "Lead Score": {
+                    "number": 10
+                },
+                "Notes": {
+                    "rich_text": [
+                        {
+                            "text": {
+                                "content": f"Report ID: {report_id}\nCity: {request_data.city}\nProperty Type: {request_data.propertyType}\nPrice Range: {request_data.minPrice} - {request_data.maxPrice}\nReport Type: {request_data.reportType}"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.notion.com/v1/pages",
+                headers=headers,
+                json=notion_data,
+                timeout=10.0
+            )
+            
+        if response.status_code == 200:
+            print(f"✅ Lead saved to Notion: {request_data.firstName} {request_data.lastName}")
+            return True
+        else:
+            print(f"❌ Failed to save to Notion: {response.status_code}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Notion save error: {str(e)}")
+        return False
 @app.post("/generate-report")
 async def generate_report(request: ReportRequest):
     try:
@@ -372,12 +443,13 @@ async def generate_report(request: ReportRequest):
                 request.minPrice or "200000",
                 request.maxPrice or "800000"
             )
-            
+            LEADS_DATABASE_ID = "20f4b172eba180d4bc22db465b17cbe9"
             # Generate professional report with insights
-            professional_report = generate_professional_report(request, mls_data)
             
+            # Save lead to Notion database
+notion_saved = await save_lead_to_notion(request, report_id)
             report_data = {
-                "reportId": professional_report["reportHeader"]["reportId"],
+                "reportId": report_id,  # Instead of professional_report["reportHeader"]["reportId"]
                 "client": f"{request.firstName} {request.lastName}",
                 "email": request.email,
                 "phone": request.phone,
