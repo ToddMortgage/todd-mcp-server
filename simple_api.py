@@ -48,48 +48,90 @@ async def save_lead_to_notion(request_data, report_id):
             "Notion-Version": "2022-06-28"
         }
         
-        notion_data = {
-            "parent": {"database_id": LEADS_DATABASE_ID},
-            "properties": {
-                "Name": {
-                    "title": [
-                        {
-                            "text": {
-                                "content": f"{request_data.firstName} {request_data.lastName}"
-                            }
-                        }
-                    ]
-                },
-                "Email": {
-                    "email": request_data.email
-                },
-                "Phone": {
-                    "phone_number": request_data.phone
-                },
-                "Status": {
-                    "select": {
-                        "name": "New Lead"
-                    }
-                },
-                "Source": {
-                    "select": {
-                        "name": "Landing Page"
-                    }
-                },
-                "Lead Score": {
-                    "number": 10
-                },
-                "Notes": {
-                    "rich_text": [
-                        {
-                            "text": {
-                                "content": f"Report ID: {report_id}\nCity: {request_data.city}\nProperty Type: {request_data.propertyType}\nPrice Range: {request_data.minPrice} - {request_data.maxPrice}\nReport Type: {request_data.reportType}"
-                            }
-                        }
-                    ]
+"properties": {
+    "Name": {
+        "title": [
+            {
+                "text": {
+                    "content": f"{request_data.firstName} {request_data.lastName}"
                 }
             }
+        ]
+    },
+    "Email": {
+        "email": request_data.email
+    },
+    "Phone": {
+        "phone_number": request_data.phone
+    },
+    "Status": {
+        "select": {
+            "name": "New Lead"
         }
+    },
+    "Source": {
+        "select": {
+            "name": "Landing Page"
+        }
+    },
+    "Lead Score": {
+        "number": 10
+    },
+    "City": {
+        "rich_text": [
+            {
+                "text": {
+                    "content": request_data.city
+                }
+            }
+        ]
+    },
+    "Property Type": {
+        "rich_text": [
+            {
+                "text": {
+                    "content": request_data.propertyType
+                }
+            }
+        ]
+    },
+    "Price Range": {
+        "rich_text": [
+            {
+                "text": {
+                    "content": f"{request_data.minPrice} - {request_data.maxPrice}"
+                }
+            }
+        ]
+    },
+    "Report Type": {
+        "rich_text": [
+            {
+                "text": {
+                    "content": request_data.reportType
+                }
+            }
+        ]
+    },
+    "Report ID": {
+        "rich_text": [
+            {
+                "text": {
+                    "content": report_id
+                }
+            }
+        ]
+    },
+    "Notes": {
+        "rich_text": [
+            {
+                "text": {
+                    "content": f"Form submitted from landing page on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}"
+                }
+            }
+        ]
+    }
+}
         
         async with httpx.AsyncClient() as client:
             response = await client.post(
