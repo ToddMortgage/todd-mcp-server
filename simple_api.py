@@ -24,6 +24,7 @@ app.add_middleware(
 # Your database config with hardcoded token
 NOTION_TOKEN = "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"
 LEADS_DATABASE_ID = "20f4b172eba180d4bc22db465b17cbe9"
+
 # Request models
 class ReportRequest(BaseModel):
     firstName: str
@@ -36,163 +37,78 @@ class ReportRequest(BaseModel):
     maxPrice: str = ""
     reportType: str
 
-def generate_professional_report(request, mls_data):
+async def save_lead_to_notion(request_data, report_id):
     """
-    Generate a professional market report with insights and analysis
+    Save lead information to Notion database
     """
-    
-    properties = mls_data['properties']
-    market_stats = mls_data['marketStats']
-    
-    # Calculate enhanced market insights
-    active_properties = [p for p in properties if p['status'] == 'Active']
-    pending_properties = [p for p in properties if p['status'] in ['Pending', 'Under Contract']]
-    
-    # Price analysis
-    prices = [p['priceNumeric'] for p in properties]
-    price_per_sqft = [int(p['priceNumeric'] / p['sqftNumeric']) for p in properties if p['sqftNumeric'] > 0]
-    
-    # Market velocity
-    avg_dom = sum(p['daysOnMarket'] for p in properties) // len(properties)
-    fast_sales = len([p for p in properties if p['daysOnMarket'] < 30])
-    
-    # Generate market commentary
-    if avg_dom < 45:
-        market_pace = "Fast-moving seller's market"
-        market_insight = "Properties are selling quickly. Buyers should be prepared to act fast with competitive offers."
-    elif avg_dom < 90:
-        market_pace = "Balanced market conditions"
-        market_insight = "Moderate pace with good opportunities for both buyers and sellers."
-    else:
-        market_pace = "Buyer-friendly market"
-        market_insight = "Extended market times provide negotiation opportunities for buyers."
-    
-    # Price trend analysis
-    recent_sales = [p for p in properties if p['daysOnMarket'] < 60]
-    if len(recent_sales) > 0:
-        recent_avg = sum(p['priceNumeric'] for p in recent_sales) // len(recent_sales)
-        overall_avg = int(market_stats['averagePrice'].replace('$', '').replace(',', ''))
-        if recent_avg > overall_avg:
-            price_trend = "Prices trending upward"
-        else:
-            price_trend = "Stable pricing"
-
-        price_trend = "Limited recent activity"
-    
-    # Generate professional report
-    report = {
-        "reportHeader": {
-            "title": f"{request.city} Market Analysis Report",
-            "subtitle": f"{request.propertyType} Properties | ${request.minPrice} - ${request.maxPrice}",
-            "generatedFor": f"{request.firstName} {request.lastName}",
-            "generatedBy": "Todd Hanley, Licensed Mortgage Professional",
-            "date": datetime.now().strftime("%B %d, %Y"),
-            "reportId": f"SFL_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{request.firstName}_{request.lastName}"
-        },
-        
-        "executiveSummary": {
-            "marketOverview": f"Analysis of {len(properties)} {request.propertyType.lower()} properties in {request.city}, FL reveals {market_pace.lower()} with {len(active_properties)} active listings and {len(pending_properties)} pending sales.",
-            "keyFindings": [
-                f"Average price: {market_stats['averagePrice']} (Median: {market_stats['medianPrice']})",
-                f"Market pace: {avg_dom} days average time on market",
-                f"Price range: {market_stats['priceRange']}",
-                f"Inventory status: {len(active_properties)} available, {len(pending_properties)} under contract"
-            ],
-            "marketInsight": market_insight,
-            "priceTrend": price_trend
-        },
-        
-        "marketMetrics": {
-            "totalInventory": len(properties),
-            "activeListings": len(active_properties),
-            "pendingSales": len(pending_properties),
-            "averagePrice": market_stats['averagePrice'],
-            "medianPrice": market_stats['medianPrice'],
-            "priceRange": market_stats['priceRange'],
-            "averageDaysOnMarket": avg_dom,
-            "averagePricePerSqft": f"${sum(price_per_sqft) // len(price_per_sqft)}" if price_per_sqft else "N/A",
-            "marketVelocity": f"{fast_sales} properties sold in under 30 days",
-            "inventoryAnalysis": {
-                "underAsking": len([p for p in properties if p['priceNumeric'] < int(request.minPrice or "0") * 1.1]),
-                "inRange": len([p for p in properties if int(request.minPrice or "0") <= p['priceNumeric'] <= int(request.maxPrice or "999999999")]),
-                "overAsking": len([p for p in properties if p['priceNumeric'] > int(request.maxPrice or "999999999") * 0.9])
-            }
-        },
-        
-        "propertyHighlights": {
-            "bestValue": min(properties, key=lambda x: x['priceNumeric']),
-            "premiumOption": max(properties, key=lambda x: x['priceNumeric']),
-            "newestListing": min(properties, key=lambda x: x['daysOnMarket']),
-            "quickSale": min([p for p in properties if p['status'] in ['Pending', 'Under Contract']], 
-                           key=lambda x: x['daysOnMarket'], default=None) if pending_properties else None
-        },
-        
-        "neighborhoodAnalysis": {
-            "featuredAreas": list(set([p['neighborhood'] for p in properties[:5]])),
-            "priceByNeighborhood": {
-                neighborhood: {
-                    "averagePrice": f"${sum(p['priceNumeric'] for p in properties if p['neighborhood'] == neighborhood) // len([p for p in properties if p['neighborhood'] == neighborhood]):,}",
-                    "listingCount": len([p for p in properties if p['neighborhood'] == neighborhood])
-                }
-                for neighborhood in set([p['neighborhood'] for p in properties[:5]])
-            }
-        },
-        
-        "financingInsights": {
-            "estimatedPayments": {
-                "lowEnd": {
-                    "price": f"${min(prices):,}",
-                    "downPayment": f"${min(prices) * 0.2:,.0f} (20%)",
-                    "loanAmount": f"${min(prices) * 0.8:,.0f}",
-                    "estimatedPayment": f"${(min(prices) * 0.8 * 0.07 / 12):,.0f}/month (7% est.)"
-                },
-                "median": {
-                    "price": market_stats['medianPrice'],
-                    "downPayment": f"${int(market_stats['medianPrice'].replace('$', '').replace(',', '')) * 0.2:,.0f} (20%)",
-                    "loanAmount": f"${int(market_stats['medianPrice'].replace('$', '').replace(',', '')) * 0.8:,.0f}",
-                    "estimatedPayment": f"${(int(market_stats['medianPrice'].replace('$', '').replace(',', '')) * 0.8 * 0.07 / 12):,.0f}/month (7% est.)"
-                }
-            },
-            "marketOpportunity": "Contact Todd Hanley for current rates and pre-qualification in this competitive market."
-        },
-        
-        "topProperties": properties[:5],  # Top 5 properties
-        
-        "marketRecommendations": {
-            "forBuyers": [
-                f"Consider properties in the ${min(prices):,} - ${int(sum(prices) / len(prices)):,} range for best value",
-                f"Act quickly on desirable properties - average market time is {avg_dom} days",
-                "Get pre-qualified to strengthen your offer in this market",
-                f"Focus on {', '.join(list(set([p['neighborhood'] for p in properties[:3]])))} neighborhoods for inventory"
-            ],
-            "marketTiming": f"Current market conditions favor {'buyers' if avg_dom > 60 else 'sellers'} with {'extended' if avg_dom > 60 else 'quick'} decision timelines.",
-            "nextSteps": [
-                "Schedule property viewings for top selections",
-                "Complete mortgage pre-qualification with Todd Hanley",
-                "Review financing options and down payment strategies",
-                "Monitor new listings in target neighborhoods"
-            ]
-        },
-        
-        "contactInfo": {
-            "loanOfficer": "Todd Hanley",
-            "title": "Licensed Mortgage Broker",
-            "phone": "954-806-5114",
-            "email": "toddhanley1@yahoo.com",
-            "licenses": "FL | TX | NJ",
-            "specialties": ["Conventional Loans", "Reverse Mortgages", "Investment Properties"],
-            "callToAction": f"Ready to explore financing options for {request.city} properties? Call Todd for your free consultation and rate quote."
-        },
-        
-        "reportFooter": {
-            "dataSource": "Matrix MLS (South Florida)",
-            "generated": datetime.now().isoformat(),
-            "disclaimer": "Market data is subject to change. Property availability and pricing should be verified. Mortgage rates and terms vary based on individual qualifications.",
-            "confidential": f"Prepared exclusively for {request.firstName} {request.lastName}"
+    try:
+        headers = {
+            "Authorization": f"Bearer {NOTION_TOKEN}",
+            "Content-Type": "application/json",
+            "Notion-Version": "2022-06-28"
         }
-    }
-    
-    return report
+        
+        notion_data = {
+            "parent": {"database_id": LEADS_DATABASE_ID},
+            "properties": {
+                "Name": {
+                    "title": [
+                        {
+                            "text": {
+                                "content": f"{request_data.firstName} {request_data.lastName}"
+                            }
+                        }
+                    ]
+                },
+                "Email": {
+                    "email": request_data.email
+                },
+                "Phone": {
+                    "phone_number": request_data.phone
+                },
+                "Status": {
+                    "select": {
+                        "name": "New Lead"
+                    }
+                },
+                "Source": {
+                    "select": {
+                        "name": "Landing Page"
+                    }
+                },
+                "Lead Score": {
+                    "number": 10
+                },
+                "Notes": {
+                    "rich_text": [
+                        {
+                            "text": {
+                                "content": f"Report ID: {report_id}\nCity: {request_data.city}\nProperty Type: {request_data.propertyType}\nPrice Range: {request_data.minPrice} - {request_data.maxPrice}\nReport Type: {request_data.reportType}"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.notion.com/v1/pages",
+                headers=headers,
+                json=notion_data,
+                timeout=10.0
+            )
+            
+        if response.status_code == 200:
+            print(f"✅ Lead saved to Notion: {request_data.firstName} {request_data.lastName}")
+            return True
+        else:
+            print(f"❌ Failed to save to Notion: {response.status_code}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Notion save error: {str(e)}")
+        return False
 
 def get_mls_data(city, property_type, min_price, max_price):
     """
@@ -202,6 +118,7 @@ def get_mls_data(city, property_type, min_price, max_price):
     # Clean price inputs immediately - handle any format
     min_price = min_price.replace('$', '').replace(',', '') if isinstance(min_price, str) else str(min_price)
     max_price = max_price.replace('$', '').replace(',', '') if isinstance(max_price, str) else str(max_price)
+    
     # Property type variations
     property_types = {
         "Single Family": ["SFR", "Single Family Home", "Detached"],
@@ -237,7 +154,14 @@ def get_mls_data(city, property_type, min_price, max_price):
     })
     
     # Generate realistic property count based on price range
-
+    try:
+        price_range = int(max_price) - int(min_price)
+        if price_range > 500000:
+            property_count = random.randint(25, 45)
+        elif price_range > 200000:
+            property_count = random.randint(15, 35)
+        else:
+            property_count = random.randint(8, 20)
     except:
         property_count = random.randint(10, 25)
     
@@ -246,7 +170,7 @@ def get_mls_data(city, property_type, min_price, max_price):
     for i in range(property_count):
         # Generate realistic price within range
         try:
-            price = random.randint(int(clean_min), int(clean_max))
+            price = random.randint(int(min_price), int(max_price))
             price = int(price * city_info["price_modifier"])
         except:
             price = random.randint(300000, 600000)
@@ -349,81 +273,16 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "message": "Todd's API is running!"}
-async def save_lead_to_notion(request_data, report_id):
-    """
-    Save lead information to Notion database
-    """
-    try:
-        headers = {
-            "Authorization": f"Bearer {NOTION_TOKEN}",
-            "Content-Type": "application/json",
-            "Notion-Version": "2022-06-28"
-        }
-        
-        notion_data = {
-            "parent": {"database_id": LEADS_DATABASE_ID},
-            "properties": {
-                "Name": {
-                    "title": [
-                        {
-                            "text": {
-                                "content": f"{request_data.firstName} {request_data.lastName}"
-                            }
-                        }
-                    ]
-                },
-                "Email": {
-                    "email": request_data.email
-                },
-                "Phone": {
-                    "phone_number": request_data.phone
-                },
-                "Status": {
-                    "select": {
-                        "name": "New Lead"
-                    }
-                },
-                "Source": {
-                    "select": {
-                        "name": "Landing Page"
-                    }
-                },
-                "Lead Score": {
-                    "number": 10
-                },
-                "Notes": {
-                    "rich_text": [
-                        {
-                            "text": {
-                                "content": f"Report ID: {report_id}\nCity: {request_data.city}\nProperty Type: {request_data.propertyType}\nPrice Range: {request_data.minPrice} - {request_data.maxPrice}\nReport Type: {request_data.reportType}"
-                            }
-                        }
-                    ]
-                }
-            }
-        }
-        
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.notion.com/v1/pages",
-                headers=headers,
-                json=notion_data,
-                timeout=10.0
-            )
-            
-        if response.status_code == 200:
-            print(f"✅ Lead saved to Notion: {request_data.firstName} {request_data.lastName}")
-            return True
-        else:
-            print(f"❌ Failed to save to Notion: {response.status_code}")
-            return False
-            
-    except Exception as e:
-        print(f"❌ Notion save error: {str(e)}")
-        return False
+
 @app.post("/generate-report")
 async def generate_report(request: ReportRequest):
     try:
+        # Generate report ID first
+        report_id = f"SFL_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{request.firstName}_{request.lastName}"
+        
+        # Save lead to Notion database
+        notion_saved = await save_lead_to_notion(request, report_id)
+        
         # Generate custom market report using Python MLS function
         try:
             # Call Python MLS function
@@ -433,13 +292,9 @@ async def generate_report(request: ReportRequest):
                 request.minPrice or "200000",
                 request.maxPrice or "800000"
             )
-            LEADS_DATABASE_ID = "20f4b172eba180d4bc22db465b17cbe9"
-            # Generate professional report with insights
             
-            # Save lead to Notion database
-notion_saved = await save_lead_to_notion(request, report_id)
             report_data = {
-                "reportId": report_id,  # Instead of professional_report["reportHeader"]["reportId"]
+                "reportId": report_id,
                 "client": f"{request.firstName} {request.lastName}",
                 "email": request.email,
                 "phone": request.phone,
@@ -448,36 +303,37 @@ notion_saved = await save_lead_to_notion(request, report_id)
                 "priceRange": f"${request.minPrice} - ${request.maxPrice}",
                 "reportType": request.reportType,
                 "generated": datetime.now().isoformat(),
-                "professionalReport": professional_report,
-                "rawMlsData": mls_data,
-                "message": f"Professional market analysis completed for {request.city} - {mls_data['marketStats']['totalListings']} properties analyzed",
+                "mlsData": mls_data,
+                "message": f"Market analysis completed for {request.city} - {mls_data['marketStats']['totalListings']} properties analyzed",
                 "summary": {
                     "totalProperties": mls_data['marketStats']['totalListings'],
                     "averagePrice": mls_data['marketStats']['averagePrice'],
                     "medianPrice": mls_data['marketStats']['medianPrice'],
-                    "averageDaysOnMarket": mls_data['marketStats']['averageDaysOnMarket'],
-                    "marketInsight": professional_report["executiveSummary"]["marketInsight"]
-                }
+                    "averageDaysOnMarket": mls_data['marketStats']['averageDaysOnMarket']
+                },
+                "leadCaptured": notion_saved
             }
             
         except Exception as e:
-            # Fallback if MLS function fails
+            # Fallback if MLS function fails but still capture lead
             report_data = {
-                "reportId": f"SFL_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{request.firstName}_{request.lastName}",
+                "reportId": report_id,
                 "client": f"{request.firstName} {request.lastName}",
                 "email": request.email,
                 "city": request.city,
                 "error": f"Report generation error: {str(e)}",
-                "message": f"Unable to generate professional report for {request.city}"
+                "message": f"Lead captured successfully, report generation failed for {request.city}",
+                "leadCaptured": notion_saved
             }
         
         return {
             "success": True,
             "report": report_data,
-            "message": f"Professional market report generated successfully for {request.firstName} in {request.city}"
+            "message": f"Lead captured and report generated successfully for {request.firstName} in {request.city}"
         }
         
     except Exception as e:
+        print(f"❌ Critical error in generate_report: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Report generation failed: {str(e)}")
 
 @app.get("/test-zapier")
