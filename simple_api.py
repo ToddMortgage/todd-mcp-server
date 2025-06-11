@@ -76,7 +76,7 @@ def generate_professional_report(request, mls_data):
             price_trend = "Prices trending upward"
         else:
             price_trend = "Stable pricing"
-        else:
+
         price_trend = "Limited recent activity"
     
     # Generate professional report
