@@ -39,7 +39,7 @@ class ReportRequest(BaseModel):
 
 async def save_lead_to_notion(request_data, report_id):
     """
-    Save lead information to Notion database
+    Save lead information to Notion database with proper column mapping
     """
     try:
         headers = {
@@ -48,90 +48,93 @@ async def save_lead_to_notion(request_data, report_id):
             "Notion-Version": "2022-06-28"
         }
         
-"properties": {
-    "Name": {
-        "title": [
-            {
-                "text": {
-                    "content": f"{request_data.firstName} {request_data.lastName}"
+        notion_data = {
+            "parent": {"database_id": LEADS_DATABASE_ID},
+            "properties": {
+                "Name": {
+                    "title": [
+                        {
+                            "text": {
+                                "content": f"{request_data.firstName} {request_data.lastName}"
+                            }
+                        }
+                    ]
+                },
+                "Email": {
+                    "email": request_data.email
+                },
+                "Phone": {
+                    "phone_number": request_data.phone
+                },
+                "Status": {
+                    "select": {
+                        "name": "New Lead"
+                    }
+                },
+                "Source": {
+                    "select": {
+                        "name": "Landing Page"
+                    }
+                },
+                "Lead Score": {
+                    "number": 10
+                },
+                "City": {
+                    "rich_text": [
+                        {
+                            "text": {
+                                "content": request_data.city
+                            }
+                        }
+                    ]
+                },
+                "Property Type": {
+                    "rich_text": [
+                        {
+                            "text": {
+                                "content": request_data.propertyType
+                            }
+                        }
+                    ]
+                },
+                "Price Range": {
+                    "rich_text": [
+                        {
+                            "text": {
+                                "content": f"{request_data.minPrice} - {request_data.maxPrice}"
+                            }
+                        }
+                    ]
+                },
+                "Report Type": {
+                    "rich_text": [
+                        {
+                            "text": {
+                                "content": request_data.reportType
+                            }
+                        }
+                    ]
+                },
+                "Report ID": {
+                    "rich_text": [
+                        {
+                            "text": {
+                                "content": report_id
+                            }
+                        }
+                    ]
+                },
+                "Notes": {
+                    "rich_text": [
+                        {
+                            "text": {
+                                "content": f"Form submitted from landing page on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}"
+                            }
+                        }
+                    ]
                 }
             }
-        ]
-    },
-    "Email": {
-        "email": request_data.email
-    },
-    "Phone": {
-        "phone_number": request_data.phone
-    },
-    "Status": {
-        "select": {
-            "name": "New Lead"
         }
-    },
-    "Source": {
-        "select": {
-            "name": "Landing Page"
-        }
-    },
-    "Lead Score": {
-        "number": 10
-    },
-    "City": {
-        "rich_text": [
-            {
-                "text": {
-                    "content": request_data.city
-                }
-            }
-        ]
-    },
-    "Property Type": {
-        "rich_text": [
-            {
-                "text": {
-                    "content": request_data.propertyType
-                }
-            }
-        ]
-    },
-    "Price Range": {
-        "rich_text": [
-            {
-                "text": {
-                    "content": f"{request_data.minPrice} - {request_data.maxPrice}"
-                }
-            }
-        ]
-    },
-    "Report Type": {
-        "rich_text": [
-            {
-                "text": {
-                    "content": request_data.reportType
-                }
-            }
-        ]
-    },
-    "Report ID": {
-        "rich_text": [
-            {
-                "text": {
-                    "content": report_id
-                }
-            }
-        ]
-    },
-    "Notes": {
-        "rich_text": [
-            {
-                "text": {
-                    "content": f"Form submitted from landing page on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}"
-                }
-            }
-        ]
-    }
-}
         
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -169,22 +172,136 @@ def get_mls_data(city, property_type, min_price, max_price):
         "Multi Family": ["Duplex", "Triplex", "Multi-Family"]
     }
     
-    # City-specific data
+    # City-specific data with expanded coverage
     city_data = {
+        # Broward County
         "Fort Lauderdale": {
             "zip_codes": ["33301", "33304", "33308", "33315", "33316"],
             "neighborhoods": ["Victoria Park", "Colee Hammock", "Rio Vista", "Las Olas", "Sailboat Bend"],
             "price_modifier": 1.0
         },
-        "Miami": {
-            "zip_codes": ["33101", "33109", "33125", "33137", "33142"],
-            "neighborhoods": ["Brickell", "South Beach", "Wynwood", "Little Havana", "Coral Gables"],
-            "price_modifier": 1.2
+        "Hollywood": {
+            "zip_codes": ["33019", "33020", "33021", "33023"],
+            "neighborhoods": ["Hollywood Beach", "Young Circle", "Emerald Hills", "Hollywood Hills"],
+            "price_modifier": 0.95
         },
         "Pembroke Pines": {
             "zip_codes": ["33024", "33025", "33026", "33027", "33028"],
             "neighborhoods": ["Century Village", "Pembroke Lakes", "Silver Lakes", "Chapel Trail"],
             "price_modifier": 0.9
+        },
+        "Plantation": {
+            "zip_codes": ["33313", "33317", "33322", "33324"],
+            "neighborhoods": ["Plantation Acres", "Jacaranda", "Central Park", "Plantation Isles"],
+            "price_modifier": 1.05
+        },
+        "Coral Springs": {
+            "zip_codes": ["33065", "33071", "33076"],
+            "neighborhoods": ["Heron Bay", "Eagle Trace", "Coral Springs Country Club", "Ramblewood"],
+            "price_modifier": 1.1
+        },
+        "Weston": {
+            "zip_codes": ["33326", "33327", "33331"],
+            "neighborhoods": ["Bonaventure", "Windmill Ranch", "Indian Trace", "Savanna"],
+            "price_modifier": 1.3
+        },
+        "Davie": {
+            "zip_codes": ["33314", "33317", "33324", "33328"],
+            "neighborhoods": ["Nova", "Pine Island Ridge", "Southwest Ranches", "Orange Drive"],
+            "price_modifier": 1.0
+        },
+        "Miramar": {
+            "zip_codes": ["33023", "33025", "33029"],
+            "neighborhoods": ["Miramar Pines", "Silver Shores", "Town Center", "Riviera Isles"],
+            "price_modifier": 0.95
+        },
+        "Coconut Creek": {
+            "zip_codes": ["33063", "33066", "33073"],
+            "neighborhoods": ["Wynmoor", "Regency Lakes", "Pelican Pointe", "Winston Park"],
+            "price_modifier": 1.0
+        },
+        
+        # Miami-Dade County
+        "Miami": {
+            "zip_codes": ["33101", "33109", "33125", "33137", "33142"],
+            "neighborhoods": ["Brickell", "South Beach", "Wynwood", "Little Havana", "Coral Gables"],
+            "price_modifier": 1.2
+        },
+        "Miami Beach": {
+            "zip_codes": ["33109", "33139", "33140", "33141"],
+            "neighborhoods": ["South Beach", "Mid-Beach", "North Beach", "Fisher Island"],
+            "price_modifier": 1.8
+        },
+        "Coral Gables": {
+            "zip_codes": ["33134", "33143", "33146"],
+            "neighborhoods": ["Miracle Mile", "Granada", "Ponce Davis", "Gables Estates"],
+            "price_modifier": 1.4
+        },
+        "Aventura": {
+            "zip_codes": ["33160", "33180"],
+            "neighborhoods": ["Williams Island", "Turnberry", "Aventura Lakes", "Porto Vita"],
+            "price_modifier": 1.3
+        },
+        "Doral": {
+            "zip_codes": ["33122", "33126", "33166", "33178"],
+            "neighborhoods": ["Trump Doral", "Doral Park", "Costa del Sol", "Vintage Estates"],
+            "price_modifier": 1.15
+        },
+        
+        # Palm Beach County
+        "Boca Raton": {
+            "zip_codes": ["33428", "33431", "33432", "33433", "33434"],
+            "neighborhoods": ["Mizner Park", "Royal Palm Yacht Club", "Boca West", "Woodfield"],
+            "price_modifier": 1.25
+        },
+        "Delray Beach": {
+            "zip_codes": ["33444", "33446", "33483"],
+            "neighborhoods": ["Atlantic Avenue", "Seagate", "Village Golf Club", "Polo Trace"],
+            "price_modifier": 1.15
+        },
+        "West Palm Beach": {
+            "zip_codes": ["33401", "33405", "33407", "33409", "33411"],
+            "neighborhoods": ["Downtown", "Flagler Drive", "El Cid", "Forest Hill"],
+            "price_modifier": 1.0
+        },
+        "Palm Beach Gardens": {
+            "zip_codes": ["33408", "33410", "33418"],
+            "neighborhoods": ["PGA National", "Mirasol", "BallenIsles", "Evergrene"],
+            "price_modifier": 1.35
+        },
+        "Wellington": {
+            "zip_codes": ["33414", "33449"],
+            "neighborhoods": ["Olympia", "Grand Prix Village", "Palm Beach Polo", "Versailles"],
+            "price_modifier": 1.2
+        },
+        "Jupiter": {
+            "zip_codes": ["33458", "33469", "33477"],
+            "neighborhoods": ["Admiral's Cove", "Trump National", "Loxahatchee Club", "Abacoa"],
+            "price_modifier": 1.3
+        },
+        
+        # Martin County
+        "Stuart": {
+            "zip_codes": ["34994", "34996", "34997"],
+            "neighborhoods": ["Sailfish Point", "Bears Club", "Willoughby Golf Club", "Sewall's Point"],
+            "price_modifier": 1.1
+        },
+        "Hobe Sound": {
+            "zip_codes": ["33455", "33475"],
+            "neighborhoods": ["Lost Tree Village", "Bridge Road", "Gomez", "Jonathan's Landing"],
+            "price_modifier": 1.4
+        },
+        
+        # St. Lucie County
+        "Port St. Lucie": {
+            "zip_codes": ["34952", "34953", "34983", "34986", "34987"],
+            "neighborhoods": ["PGA Village", "Tradition", "St. Lucie West", "Tesoro"],
+            "price_modifier": 0.8
+        },
+        "Fort Pierce": {
+            "zip_codes": ["34946", "34947", "34949", "34950", "34951"],
+            "neighborhoods": ["Harbour Ridge", "Spanish Lakes", "Fort Pierce Farms", "Lakewood Park"],
+            "price_modifier": 0.75
         }
     }
     
@@ -322,7 +439,7 @@ async def generate_report(request: ReportRequest):
         # Generate report ID first
         report_id = f"SFL_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{request.firstName}_{request.lastName}"
         
-        # Save lead to Notion database
+        # Save lead to Notion database with proper column mapping
         notion_saved = await save_lead_to_notion(request, report_id)
         
         # Generate custom market report using Python MLS function
@@ -353,7 +470,8 @@ async def generate_report(request: ReportRequest):
                     "medianPrice": mls_data['marketStats']['medianPrice'],
                     "averageDaysOnMarket": mls_data['marketStats']['averageDaysOnMarket']
                 },
-                "leadCaptured": notion_saved
+                "leadCaptured": notion_saved,
+                "notionColumns": "✅ Properly mapped to individual columns"
             }
             
         except Exception as e:
