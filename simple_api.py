@@ -236,7 +236,10 @@ def get_mls_data(city, property_type, min_price, max_price):
     
     # Generate realistic property count based on price range
     try:
-        price_range = int(max_price) - int(min_price)
+    # Clean price strings - remove $ and commas
+    clean_min = min_price.replace('$', '').replace(',', '')
+    clean_max = max_price.replace('$', '').replace(',', '')
+    price_range = int(clean_max) - int(clean_min)
         if price_range > 500000:
             property_count = random.randint(25, 45)
         elif price_range > 200000:
@@ -251,7 +254,7 @@ def get_mls_data(city, property_type, min_price, max_price):
     for i in range(property_count):
         # Generate realistic price within range
         try:
-            price = random.randint(int(min_price), int(max_price))
+            price = random.randint(int(clean_min), int(clean_max))
             price = int(price * city_info["price_modifier"])
         except:
             price = random.randint(300000, 600000)
