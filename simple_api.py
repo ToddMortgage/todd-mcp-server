@@ -199,7 +199,9 @@ def get_mls_data(city, property_type, min_price, max_price):
     Python MLS data generator that returns realistic property data
     Based on South Florida market patterns
     """
-    
+    # Clean price inputs immediately - handle any format
+    min_price = min_price.replace('$', '').replace(',', '') if isinstance(min_price, str) else str(min_price)
+    max_price = max_price.replace('$', '').replace(',', '') if isinstance(max_price, str) else str(max_price)
     # Property type variations
     property_types = {
         "Single Family": ["SFR", "Single Family Home", "Detached"],
