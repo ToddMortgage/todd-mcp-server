@@ -248,7 +248,7 @@ def get_mls_data(city, property_type, min_price, max_price):
             property_count = random.randint(15, 35)
         else:
             property_count = random.randint(8, 20)
-        except:
+    except:
         property_count = random.randint(10, 25)
     
     properties = []
