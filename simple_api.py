@@ -47,8 +47,7 @@ async def health_check():
 @app.post("/generate-report")
 async def generate_report(request: ReportRequest):
     try:
-        # Generate custom market report
-       # Call Node.js MLS scraper with form parameters
+        # Call Node.js MLS scraper with form parameters
         try:
             result = subprocess.run([
                 'node', 'matrix-scraper.js',
@@ -92,6 +91,15 @@ async def generate_report(request: ReportRequest):
                 "error": str(e),
                 "message": "MLS scraper error"
             }
+        
+        return {
+            "success": True,
+            "report": report_data,
+            "message": f"Report generated successfully for {request.firstName} in {request.city}"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/test-zapier")
 async def test_zapier():
