@@ -137,7 +137,7 @@ def get_mls_data(city, property_type, min_price, max_price):
             "city": city,
             "state": "FL",
             "zipCode": zip_code,
-            "price": f"${price:,}",
+            "price": f"${price}",
             "priceNumeric": price,
             "beds": beds,
             "baths": baths,
@@ -175,8 +175,8 @@ def get_mls_data(city, property_type, min_price, max_price):
         "searchCriteria": {
             "city": city,
             "propertyType": property_type,
-            "minPrice": f"${int(min_price) if min_price.isdigit() else min_price:,}",
-            "maxPrice": f"${int(max_price) if max_price.isdigit() else max_price:,}"
+            "minPrice": f"${int(min_price) if min_price.isdigit() else min_price:}",
+            "maxPrice": f"${int(max_price) if max_price.isdigit() else max_price:}"
         }
     }
     
