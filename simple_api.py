@@ -237,17 +237,7 @@ def get_mls_data(city, property_type, min_price, max_price):
     })
     
     # Generate realistic property count based on price range
-    try:
-    # Clean price strings - remove $ and commas
-    clean_min = min_price.replace('$', '').replace(',', '')  # ← PROPERLY INDENTED!
-    clean_max = max_price.replace('$', '').replace(',', '')  # ← PROPERLY INDENTED!
-    price_range = int(clean_max) - int(clean_min)
-        if price_range > 500000:
-            property_count = random.randint(25, 45)
-        elif price_range > 200000:
-            property_count = random.randint(15, 35)
-        else:
-            property_count = random.randint(8, 20)
+
     except:
         property_count = random.randint(10, 25)
     
