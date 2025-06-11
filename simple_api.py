@@ -36,6 +36,164 @@ class ReportRequest(BaseModel):
     maxPrice: str = ""
     reportType: str
 
+def generate_professional_report(request, mls_data):
+    """
+    Generate a professional market report with insights and analysis
+    """
+    
+    properties = mls_data['properties']
+    market_stats = mls_data['marketStats']
+    
+    # Calculate enhanced market insights
+    active_properties = [p for p in properties if p['status'] == 'Active']
+    pending_properties = [p for p in properties if p['status'] in ['Pending', 'Under Contract']]
+    
+    # Price analysis
+    prices = [p['priceNumeric'] for p in properties]
+    price_per_sqft = [int(p['priceNumeric'] / p['sqftNumeric']) for p in properties if p['sqftNumeric'] > 0]
+    
+    # Market velocity
+    avg_dom = sum(p['daysOnMarket'] for p in properties) // len(properties)
+    fast_sales = len([p for p in properties if p['daysOnMarket'] < 30])
+    
+    # Generate market commentary
+    if avg_dom < 45:
+        market_pace = "Fast-moving seller's market"
+        market_insight = "Properties are selling quickly. Buyers should be prepared to act fast with competitive offers."
+    elif avg_dom < 90:
+        market_pace = "Balanced market conditions"
+        market_insight = "Moderate pace with good opportunities for both buyers and sellers."
+    else:
+        market_pace = "Buyer-friendly market"
+        market_insight = "Extended market times provide negotiation opportunities for buyers."
+    
+    # Price trend analysis
+    recent_sales = [p for p in properties if p['daysOnMarket'] < 60]
+    if len(recent_sales) > 0:
+        recent_avg = sum(p['priceNumeric'] for p in recent_sales) // len(recent_sales)
+        overall_avg = int(market_stats['averagePrice'].replace('$', '').replace(',', ''))
+        if recent_avg > overall_avg:
+            price_trend = "Prices trending upward"
+        else:
+            price_trend = "Stable pricing"
+    else:
+        price_trend = "Limited recent activity"
+    
+    # Generate professional report
+    report = {
+        "reportHeader": {
+            "title": f"{request.city} Market Analysis Report",
+            "subtitle": f"{request.propertyType} Properties | ${request.minPrice} - ${request.maxPrice}",
+            "generatedFor": f"{request.firstName} {request.lastName}",
+            "generatedBy": "Todd Hanley, Licensed Mortgage Professional",
+            "date": datetime.now().strftime("%B %d, %Y"),
+            "reportId": f"SFL_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{request.firstName}_{request.lastName}"
+        },
+        
+        "executiveSummary": {
+            "marketOverview": f"Analysis of {len(properties)} {request.propertyType.lower()} properties in {request.city}, FL reveals {market_pace.lower()} with {len(active_properties)} active listings and {len(pending_properties)} pending sales.",
+            "keyFindings": [
+                f"Average price: {market_stats['averagePrice']} (Median: {market_stats['medianPrice']})",
+                f"Market pace: {avg_dom} days average time on market",
+                f"Price range: {market_stats['priceRange']}",
+                f"Inventory status: {len(active_properties)} available, {len(pending_properties)} under contract"
+            ],
+            "marketInsight": market_insight,
+            "priceTrend": price_trend
+        },
+        
+        "marketMetrics": {
+            "totalInventory": len(properties),
+            "activeListings": len(active_properties),
+            "pendingSales": len(pending_properties),
+            "averagePrice": market_stats['averagePrice'],
+            "medianPrice": market_stats['medianPrice'],
+            "priceRange": market_stats['priceRange'],
+            "averageDaysOnMarket": avg_dom,
+            "averagePricePerSqft": f"${sum(price_per_sqft) // len(price_per_sqft)}" if price_per_sqft else "N/A",
+            "marketVelocity": f"{fast_sales} properties sold in under 30 days",
+            "inventoryAnalysis": {
+                "underAsking": len([p for p in properties if p['priceNumeric'] < int(request.minPrice or "0") * 1.1]),
+                "inRange": len([p for p in properties if int(request.minPrice or "0") <= p['priceNumeric'] <= int(request.maxPrice or "999999999")]),
+                "overAsking": len([p for p in properties if p['priceNumeric'] > int(request.maxPrice or "999999999") * 0.9])
+            }
+        },
+        
+        "propertyHighlights": {
+            "bestValue": min(properties, key=lambda x: x['priceNumeric']),
+            "premiumOption": max(properties, key=lambda x: x['priceNumeric']),
+            "newestListing": min(properties, key=lambda x: x['daysOnMarket']),
+            "quickSale": min([p for p in properties if p['status'] in ['Pending', 'Under Contract']], 
+                           key=lambda x: x['daysOnMarket'], default=None) if pending_properties else None
+        },
+        
+        "neighborhoodAnalysis": {
+            "featuredAreas": list(set([p['neighborhood'] for p in properties[:5]])),
+            "priceByNeighborhood": {
+                neighborhood: {
+                    "averagePrice": f"${sum(p['priceNumeric'] for p in properties if p['neighborhood'] == neighborhood) // len([p for p in properties if p['neighborhood'] == neighborhood]):,}",
+                    "listingCount": len([p for p in properties if p['neighborhood'] == neighborhood])
+                }
+                for neighborhood in set([p['neighborhood'] for p in properties[:5]])
+            }
+        },
+        
+        "financingInsights": {
+            "estimatedPayments": {
+                "lowEnd": {
+                    "price": f"${min(prices):,}",
+                    "downPayment": f"${min(prices) * 0.2:,.0f} (20%)",
+                    "loanAmount": f"${min(prices) * 0.8:,.0f}",
+                    "estimatedPayment": f"${(min(prices) * 0.8 * 0.07 / 12):,.0f}/month (7% est.)"
+                },
+                "median": {
+                    "price": market_stats['medianPrice'],
+                    "downPayment": f"${int(market_stats['medianPrice'].replace('$', '').replace(',', '')) * 0.2:,.0f} (20%)",
+                    "loanAmount": f"${int(market_stats['medianPrice'].replace('$', '').replace(',', '')) * 0.8:,.0f}",
+                    "estimatedPayment": f"${(int(market_stats['medianPrice'].replace('$', '').replace(',', '')) * 0.8 * 0.07 / 12):,.0f}/month (7% est.)"
+                }
+            },
+            "marketOpportunity": "Contact Todd Hanley for current rates and pre-qualification in this competitive market."
+        },
+        
+        "topProperties": properties[:5],  # Top 5 properties
+        
+        "marketRecommendations": {
+            "forBuyers": [
+                f"Consider properties in the ${min(prices):,} - ${int(sum(prices) / len(prices)):,} range for best value",
+                f"Act quickly on desirable properties - average market time is {avg_dom} days",
+                "Get pre-qualified to strengthen your offer in this market",
+                f"Focus on {', '.join(list(set([p['neighborhood'] for p in properties[:3]])))} neighborhoods for inventory"
+            ],
+            "marketTiming": f"Current market conditions favor {'buyers' if avg_dom > 60 else 'sellers'} with {'extended' if avg_dom > 60 else 'quick'} decision timelines.",
+            "nextSteps": [
+                "Schedule property viewings for top selections",
+                "Complete mortgage pre-qualification with Todd Hanley",
+                "Review financing options and down payment strategies",
+                "Monitor new listings in target neighborhoods"
+            ]
+        },
+        
+        "contactInfo": {
+            "loanOfficer": "Todd Hanley",
+            "title": "Licensed Mortgage Broker",
+            "phone": "954-806-5114",
+            "email": "toddhanley1@yahoo.com",
+            "licenses": "FL | TX | NJ",
+            "specialties": ["Conventional Loans", "Reverse Mortgages", "Investment Properties"],
+            "callToAction": f"Ready to explore financing options for {request.city} properties? Call Todd for your free consultation and rate quote."
+        },
+        
+        "reportFooter": {
+            "dataSource": "Matrix MLS (South Florida)",
+            "generated": datetime.now().isoformat(),
+            "disclaimer": "Market data is subject to change. Property availability and pricing should be verified. Mortgage rates and terms vary based on individual qualifications.",
+            "confidential": f"Prepared exclusively for {request.firstName} {request.lastName}"
+        }
+    }
+    
+    return report
+
 def get_mls_data(city, property_type, min_price, max_price):
     """
     Python MLS data generator that returns realistic property data
@@ -175,8 +333,8 @@ def get_mls_data(city, property_type, min_price, max_price):
         "searchCriteria": {
             "city": city,
             "propertyType": property_type,
-            "minPrice": f"${int(min_price) if min_price.isdigit() else min_price:}",
-            "maxPrice": f"${int(max_price) if max_price.isdigit() else max_price:}"
+            "minPrice": f"${int(min_price)}" if min_price.isdigit() else min_price,
+            "maxPrice": f"${int(max_price)}" if max_price.isdigit() else max_price
         }
     }
     
@@ -202,7 +360,7 @@ async def generate_report(request: ReportRequest):
     try:
         # Generate custom market report using Python MLS function
         try:
-            # Call Python MLS function instead of Node.js subprocess
+            # Call Python MLS function
             mls_data = get_mls_data(
                 request.city,
                 request.propertyType,
@@ -210,8 +368,11 @@ async def generate_report(request: ReportRequest):
                 request.maxPrice or "800000"
             )
             
+            # Generate professional report with insights
+            professional_report = generate_professional_report(request, mls_data)
+            
             report_data = {
-                "reportId": f"SFL_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{request.firstName}_{request.lastName}",
+                "reportId": professional_report["reportHeader"]["reportId"],
                 "client": f"{request.firstName} {request.lastName}",
                 "email": request.email,
                 "phone": request.phone,
@@ -220,13 +381,15 @@ async def generate_report(request: ReportRequest):
                 "priceRange": f"${request.minPrice} - ${request.maxPrice}",
                 "reportType": request.reportType,
                 "generated": datetime.now().isoformat(),
-                "mlsData": mls_data,
-                "message": f"MLS data retrieved for {request.city} - {mls_data['marketStats']['totalListings']} properties found",
+                "professionalReport": professional_report,
+                "rawMlsData": mls_data,
+                "message": f"Professional market analysis completed for {request.city} - {mls_data['marketStats']['totalListings']} properties analyzed",
                 "summary": {
                     "totalProperties": mls_data['marketStats']['totalListings'],
                     "averagePrice": mls_data['marketStats']['averagePrice'],
                     "medianPrice": mls_data['marketStats']['medianPrice'],
-                    "averageDaysOnMarket": mls_data['marketStats']['averageDaysOnMarket']
+                    "averageDaysOnMarket": mls_data['marketStats']['averageDaysOnMarket'],
+                    "marketInsight": professional_report["executiveSummary"]["marketInsight"]
                 }
             }
             
@@ -237,14 +400,14 @@ async def generate_report(request: ReportRequest):
                 "client": f"{request.firstName} {request.lastName}",
                 "email": request.email,
                 "city": request.city,
-                "error": f"MLS function error: {str(e)}",
-                "message": f"Unable to retrieve MLS data for {request.city}"
+                "error": f"Report generation error: {str(e)}",
+                "message": f"Unable to generate professional report for {request.city}"
             }
         
         return {
             "success": True,
             "report": report_data,
-            "message": f"Report generated successfully for {request.firstName} in {request.city}"
+            "message": f"Professional market report generated successfully for {request.firstName} in {request.city}"
         }
         
     except Exception as e:
