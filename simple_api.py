@@ -141,7 +141,7 @@ def get_mls_data(city, property_type, min_price, max_price):
             "priceNumeric": price,
             "beds": beds,
             "baths": baths,
-            "sqft": f"{sqft:,}",
+            "sqft": f"{sqft}",
             "sqftNumeric": sqft,
             "propertyType": random.choice(property_types.get(property_type, [property_type])),
             "daysOnMarket": dom,
