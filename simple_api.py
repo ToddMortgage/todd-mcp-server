@@ -147,7 +147,7 @@ def get_mls_data(city, property_type, min_price, max_price):
             "daysOnMarket": dom,
             "listDate": list_date.strftime("%Y-%m-%d"),
             "neighborhood": random.choice(city_info["neighborhoods"]),
-            "pricePerSqft": f"${int(price/sqft):,}",
+            "pricePerSqft": f"${int(price/sqft)}" if sqft > 0 else "$0",
             "lotSize": f"{random.uniform(0.15, 2.5):.2f} acres",
             "yearBuilt": random.randint(1980, 2024),
             "status": random.choice(["Active", "Active", "Active", "Pending", "Under Contract"]),
@@ -168,10 +168,10 @@ def get_mls_data(city, property_type, min_price, max_price):
     
     market_stats = {
         "totalListings": len(properties),
-        "averagePrice": f"${avg_price:,}",
-        "medianPrice": f"${median_price:,}",
+        "averagePrice": f"${avg_price}",
+        "medianPrice": f"${median_price}",
         "averageDaysOnMarket": avg_dom,
-        "priceRange": f"${min(prices):,} - ${max(prices):,}",
+        "priceRange": f"${min(prices)} - ${max(prices)}",
         "searchCriteria": {
             "city": city,
             "propertyType": property_type,
