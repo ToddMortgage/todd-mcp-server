@@ -94,7 +94,7 @@ async def get_real_mls_data(city, property_type, min_price, max_price):
             'city': city,
             'propertyType': property_type,
             'minPrice': min_price.replace('$', '').replace(',', ''),
-        
+            'maxPrice': max_price.replace('$', '').replace(',', ''),      
         # Write parameters to temp file for the scraper
         with open('scraper_params.json', 'w') as f:
             json.dump(scraper_params, f)
